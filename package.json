@@ -1,0 +1,33 @@
+{
+  "name": "emos-dlt-bot",
+  "version": "1.0.0",
+  "description": "EMOS 大乐透 Telegram Bot — 自建选号玩法 / commit-reveal 随机开奖 / 95% 返奖 / 一等奖滚存",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "migrate": "node src/db/migrate.js",
+    "simulate": "node scripts/simulate.js",
+    "verify-draw": "node scripts/verify-draw.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@grammyjs/auto-retry": "^2.0.1",
+    "@grammyjs/conversations": "^2.0.4",
+    "better-sqlite3": "^12.2.0",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.2.1",
+    "grammy": "^1.34.0",
+    "node-cron": "^3.0.3",
+    "p-retry": "^6.2.1",
+    "pino": "^9.6.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.0.0",
+    "vitest": "^3.1.1"
+  }
+}

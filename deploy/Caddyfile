@@ -1,0 +1,16 @@
+# emos web 回调反代（PUBLIC_URL 配置时使用）
+# VPS 上：apt install caddy && cp deploy/Caddyfile /etc/caddy/ && systemctl reload caddy
+
+dlt.example.com {
+	encode zstd gzip
+
+	# emos 支付回调
+	reverse_proxy 127.0.0.1:8787 {
+		header_up X-Real-IP {remote_host}
+	}
+
+	# 健康检查
+	handle /healthz {
+		reverse_proxy 127.0.0.1:8787
+	}
+}
