@@ -10,9 +10,10 @@
   "scripts": {
     "start": "node src/index.js",
     "migrate": "node src/db/migrate.js",
+    "check": "node scripts/check-imports.js",
+    "test": "vitest run",
     "simulate": "node scripts/simulate.js",
-    "verify-draw": "node scripts/verify-draw.js",
-    "test": "vitest run"
+    "verify-draw": "node scripts/verify-draw.js"
   },
   "dependencies": {
     "@grammyjs/auto-retry": "^2.0.1",

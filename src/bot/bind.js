@@ -1,6 +1,6 @@
 import { db } from '../db/index.js'
-import { buildAuthLink } from '../../emos/sign.js'
-import { signCheck } from '../../emos/sign.js'
+import { buildAuthLink } from '../emos/sign.js'
+import { signCheck } from '../emos/sign.js'
 
 /**
  * 用户绑定（计划书 §5.2）
@@ -61,4 +61,4 @@ export async function handleLinkPayload(ctx, payload) {
   }
 }
 
-import { esc } from '../../util/index.js'
+import { esc } from '../util/index.js'

@@ -1,4 +1,4 @@
-import { config } from '../config/index.js'
+import { config } from './config/index.js'
 import { logger, esc } from './util/index.js'
 import { runMigrations } from './db/migrate.js'
 

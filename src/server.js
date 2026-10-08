@@ -1,8 +1,8 @@
 import Fastify from 'fastify'
-import { confirmOrderFromEmos } from '../lottery/order.js'
-import { logger, esc } from '../util/index.js'
-import { db } from '../db/index.js'
-import { config } from '../config/index.js'
+import { confirmOrderFromEmos } from './lottery/order.js'
+import { logger, esc } from './util/index.js'
+import { db } from './db/index.js'
+import { config } from './config/index.js'
 
 /**
  * Web 回调 + 健康检查（计划书 §7.5 / §9.5）

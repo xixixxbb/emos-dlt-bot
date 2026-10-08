@@ -1,8 +1,8 @@
-import { config } from '../../config/index.js'
-import { db } from '../../db/index.js'
-import { fmtTz, esc } from '../../util/index.js'
-import { getCurrentIssue, issueLabel, currentRollover } from '../../lottery/issue.js'
-import { fairnessBlurb } from '../../lottery/fair.js'
+import { config } from '../config/index.js'
+import { db } from '../db/index.js'
+import { fmtTz, esc } from '../util/index.js'
+import { getCurrentIssue, issueLabel, currentRollover } from '../lottery/issue.js'
+import { fairnessBlurb } from '../lottery/fair.js'
 
 /** 主菜单文案（已绑定用户） */
 export async function sendMainMenu(ctx) {
