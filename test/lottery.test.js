@@ -221,3 +221,36 @@ describe('deeplink 解析（含订单号带 - 场景）', () => {
     expect(parseDeeplink('hello')).toBeNull()
   })
 })
+
+// ———— emos 标识符与授权链接（实测修正：必须用 emos 用户 ID，不是 Telegram ID）————
+import { EMOS_ID_RE, EMOS_TOKEN_RE, extractEmosId, buildAuthLinkWith } from '../src/emos/id.js'
+
+describe('emos 标识符与授权链接', () => {
+  it('emos 用户 ID 格式（e 开头 s 结尾共 10 位）', () => {
+    expect(EMOS_ID_RE.test('eR3YXL09Ls')).toBe(true)
+    expect(EMOS_ID_RE.test('eW3GMWD3Js')).toBe(true)
+    expect(EMOS_ID_RE.test('7346917792')).toBe(false) // Telegram ID 不是 emos ID
+    expect(EMOS_ID_RE.test('eR3YXL09L')).toBe(false) // 缺结尾 s
+    expect(EMOS_ID_RE.test('eR3YXL09Lss')).toBe(false) // 过长
+  })
+
+  it('从各种输入中提取 emos ID', () => {
+    expect(extractEmosId('eR3YXL09Ls')).toBe('eR3YXL09Ls')
+    expect(extractEmosId('https://t.me/emospg_bot?start=link_eR3YXL09Ls-emos_dlt_bot')).toBe('eR3YXL09Ls')
+    expect(extractEmosId('我的 ID 是 eR3YXL09Ls')).toBe('eR3YXL09Ls')
+    expect(extractEmosId('7346917792')).toBeNull()
+    expect(extractEmosId('随便说点什么')).toBeNull()
+  })
+
+  it('授权链接与文档示例格式一致', () => {
+    expect(buildAuthLinkWith('eR3YXL09Ls', 'emos_dlt_bot')).toBe(
+      'https://t.me/emospg_bot?start=link_eR3YXL09Ls-emos_dlt_bot'
+    )
+  })
+
+  it('用户密钥格式', () => {
+    expect(EMOS_TOKEN_RE.test('3945_Jxxxxxxxxx')).toBe(true)
+    expect(EMOS_TOKEN_RE.test('11_test-token')).toBe(true)
+    expect(EMOS_TOKEN_RE.test('eR3YXL09Ls')).toBe(false)
+  })
+})

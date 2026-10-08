@@ -86,6 +86,25 @@ systemctl reload caddy && systemctl restart emos-dlt
 
 未配置 `PUBLIC_URL` 时为**纯轮询对账模式**（deeplink 回跳 + 每 5 分钟 `pay/query` 兜底补单），功能完整，只是丢单补偿慢几分钟。
 
+## 账号绑定流程
+
+授权链接格式：
+
+```
+https://t.me/emospg_bot?start=link_<接入方EmosID>-<botName>
+```
+
+**关于第一个参数的实测结论**：它是**接入方（bot 开发者）的 emos 用户 ID**，仅用于标识是哪个应用在接入，**没有实际功能作用**——既不是 Telegram ID，也不是绑定用户自己的 ID，填错/换掉都不影响授权结果。本项目的取法：优先读 `.env` 的 `EMOS_DEVELOPER_ID`，未配置则自动用服务商 token 调 `/api/sign/check` 推导（返回的 `user_id` 即该账号自己的 ID）。
+
+绑定流程（用户侧只有两步）：
+
+1. 用户 `/bind`（或 `/start`）→ bot 返回授权按钮
+2. 用户点按钮 → 在 emos 页面点「同意」→ 自动跳回 `t.me/<bot>?start=emosLinkAgree-<用户token>` → bot 用该 token 调 `/api/sign/check` 取得 `user_id` 写入 users 表
+
+**备用方式**：用户直接粘贴 emos 主站密钥（形如 `3945_Jxxxxxxxx`）即可绑定，无需跳转。
+
+> `/api/pay/getUserInfo?telegram_user_id=` 需服务商权限，审核通过（`/api/pay/base` 的 `status` 不为 `review`）后可用，可用于自动核对用户身份。
+
 ## 常用命令
 
 | 命令 | 说明 |
@@ -108,6 +127,8 @@ systemctl reload caddy && systemctl restart emos-dlt
 | `401 Unauthorized`（getMe 失败） | `BOT_TOKEN` 错误或已被 BotFather 重置 |
 | 日志 `PUBLIC_URL 未配置` | 正常提示，纯轮询模式运行 |
 | 长轮询收不到消息（客户端无响应） | 检查是否残留 webhook：`getWebhookInfo` 有 url 就 `deleteWebhook` |
+| 授权链接点开 emos 提示无法识别/无反应 | 链接第一个参数必须是 **emos 用户 ID**（e 开头 s 结尾 10 位），不是 Telegram 数字 ID |
+| 支付接口返回「请先成为服务商」 | 服务商申请尚在审核（`GET /api/pay/base` → `status: review`），联系 @emospg 审核 |
 | 启动正常但「/」菜单里没有命令 | 代码会在启动时注册 `setMyCommands`，看日志是否有「命令菜单注册失败」 |
 
 ## 运维
@@ -146,7 +167,8 @@ grammY (polling) ── 投注向导/绑定/查询
 ## 上线检查清单
 
 - [ ] `/start` 能收到欢迎与绑定引导
-- [ ] `/bind` 授权回跳 → `signCheck` 成功写入 users 表
+- [ ] `/bind` 输入 emos 用户 ID → 授权回跳 → `signCheck` 成功写入 users 表
+- [ ] **服务商审核通过**（`/api/pay/base` 的 `status` 不再是 `review`），否则 `pay/create`、`pay/transfer`、`getUserInfo` 全部返回「请先成为服务商」
 - [ ] `/bet` 全流程：自选 / 机选 / 复式 / 守号
 - [ ] 真实支付：`pay/create` → 支付 → deeplink 回跳入账（或 5 分钟内对账补单）
 - [ ] `pay/query` 响应字段核对，必要时收紧 `src/emos/pay.js` 的 `isOrderPaid`

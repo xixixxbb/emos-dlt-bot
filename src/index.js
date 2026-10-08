@@ -6,7 +6,7 @@ runMigrations()
 
 const { db } = await import('./db/index.js')
 const { getUserCarrot } = await import('./emos/pay.js')
-const { bindStart, handleLinkPayload } = await import('./bot/bind.js')
+const { bindStart, rebindStart, handleLinkPayload, handleBindText } = await import('./bot/bind.js')
 const { parseDeeplink } = await import('./bot/deeplink.js')
 const { sendMainMenu, sendIssues, sendResult, sendMyBets } = await import('./bot/commands.js')
 const { betEntry, betCallback, betGoCallback, betFavCallback, handleBetText, quickPickEntry } = await import(
@@ -79,6 +79,7 @@ bot.command('start', async (ctx) => {
 
 bot.command('help', (ctx) => ctx.reply(helpText, { parse_mode: 'HTML' }))
 bot.command('bind', bindStart)
+bot.command('rebind', rebindStart)
 bot.command('issues', sendIssues)
 bot.command('result', (ctx) => sendResult(ctx, ctx.match))
 bot.command('mybets', (ctx) => sendMyBets(ctx, ctx.match))
@@ -105,7 +106,14 @@ bot.callbackQuery(/^betgo:/, betGoCallback)
 
 bot.on('message:text', async (ctx) => {
   if (await handleBetText(ctx)) return
-  if (ctx.message.text.trim().startsWith('保存守号')) await handleSaveFavorite(ctx)
+  const text = ctx.message.text.trim()
+  if (text.startsWith('保存守号')) {
+    await handleSaveFavorite(ctx)
+    return
+  }
+  // 未绑定用户：识别 emos 用户 ID / 密钥，走绑定流程
+  const bound = db.prepare('SELECT 1 FROM users WHERE tg_id=?').get(ctx.from.id)
+  if (!bound) await handleBindText(ctx, text)
 })
 
 async function handleSaveFavorite(ctx) {

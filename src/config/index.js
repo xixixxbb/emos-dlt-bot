@@ -7,6 +7,11 @@ const envSchema = z.object({
   BOT_TOKEN: z.string().min(20, 'BOT_TOKEN 未配置'),
   EMOS_BASE_URL: z.string().url().default('https://test.emos.best'),
   EMOS_TOKEN: z.string().min(5, 'EMOS_TOKEN 未配置'),
+  // 授权链接里的接入方标识（开发者 emos 用户 ID）；留空则自动从服务商 token 推导
+  EMOS_DEVELOPER_ID: z
+    .string()
+    .regex(/^$|^e[A-Za-z0-9]{8}s$/, 'EMOS_DEVELOPER_ID 应为 e 开头 s 结尾的 10 位 emos 用户 ID，或留空')
+    .default(''),
   BOT_NAME: z.string().regex(/^[A-Za-z0-9_]{3,64}$/, 'BOT_NAME 应为不含 @ 的机器人用户名'),
   ADMIN_TG_ID: z.coerce.number().int().positive('ADMIN_TG_ID 未配置'),
   DB_PATH: z.string().default('./data/dlt.db'),
