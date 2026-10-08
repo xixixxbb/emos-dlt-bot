@@ -2,13 +2,13 @@
 
 基于 EMOS 萝卜经济的 Telegram 大乐透机器人：自建选号玩法 · commit-reveal 可验证开奖 · 95% 返奖 · 一等奖滚存。
 
-> 详细设计见《详尽计划书.md》。当前状态：**核心代码完成，23/23 单测通过，模块链接自检通过，待测试服联调。**
+> 详细设计见《详尽计划书.md》。当前状态：**核心代码完成，23/23 单测通过，模块链接自检通过，已在 VPS 上线运行，待测试服/正式服业务联调。**
 
 ## 部署（Debian VPS）
 
 ```bash
-# 1. 基础环境（build-essential 必须在 npm install 之前装好）
-apt update && apt install -y git curl build-essential python3
+# 1. 基础环境（build-essential 必须在 npm ci 之前装好）
+apt update && apt install -y git curl build-essential python3 sqlite3
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt install -y nodejs
 node -v && npm -v                    # 需 >= 20
 
@@ -31,19 +31,28 @@ npm run migrate
 npm start
 ```
 
-确认日志输出 `EMOS 大乐透 bot 已启动 🎰` 后，改用 systemd 常驻（`systemctl` 方案见下），**不要长期用 `npm start` 裸跑**——SSH 断开即停，且无自动重启。
+确认日志出现 `EMOS 大乐透 bot 已启动 🎰` 后，改用 systemd 常驻。
 
 ### systemd 常驻
 
 ```bash
-useradd -m -s /bin/bash dlt                 # 专用用户（unit 文件里写的是 dlt）
+useradd -m -s /bin/bash dlt                 # 专用用户（unit 文件默认 User=dlt）
 chown -R dlt:dlt /opt/emos-dlt-bot
 cp deploy/emos-dlt.service /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now emos-dlt
 journalctl -u emos-dlt -f                   # 看日志
 ```
 
-> 若你把代码放在 `/root` 或别处，请先改 `deploy/emos-dlt.service` 里的 `WorkingDirectory`、`EnvironmentFile`、`ReadWritePaths` 和 `User`，否则会启动失败。
+**unit 文件故意不写 `EnvironmentFile=`**：systemd 的 env 文件解析不会剥离行内注释，`BOT_TOKEN=xxx  # 说明` 会被整段当成值传给进程，触发 zod 校验失败并无限重启。应用自身用 dotenv 加载 `.env`（能正确剥离注释），所以交给它即可。
+
+若你把代码放在 `/root/emos-dlt-bot` 并用 root 运行，把 unit 里这几行改掉：
+
+```ini
+User=root
+WorkingDirectory=/root/emos-dlt-bot
+ReadWritePaths=/root/emos-dlt-bot/data /root/emos-dlt-bot/backups
+# ProtectHome=true 会让 root 无法访问 /root，需删除该行
+```
 
 ### 更新流程
 
@@ -51,8 +60,20 @@ journalctl -u emos-dlt -f                   # 看日志
 cd /opt/emos-dlt-bot
 git pull
 npm ci                 # 依赖有变动时才需要
-systemctl restart emos-dlt
+systemctl restart emos-dlt && journalctl -u emos-dlt -n 20 -f
 ```
+
+### 每日备份
+
+```bash
+# 需先 apt install -y sqlite3
+chmod +x deploy/backup.sh
+echo '0 3 * * * root /opt/emos-dlt-bot/deploy/backup.sh >> /opt/emos-dlt-bot/backups/backup.log 2>&1' \
+  > /etc/cron.d/emos-dlt-backup && chmod 644 /etc/cron.d/emos-dlt-backup
+deploy/backup.sh                     # 立刻验证一次
+```
+
+保留 30 天，使用 SQLite 在线备份（WAL 模式安全）。
 
 ### 可选：web 回调（HTTPS）
 
@@ -81,17 +102,20 @@ systemctl reload caddy && systemctl restart emos-dlt
 
 | 现象 | 原因与处理 |
 |------|-----------|
-| `ERR_MODULE_NOT_FOUND ... /config/index.js` | 旧版本 import 路径层级错误，`git pull` 拉取最新代码即可（已修复） |
+| `ERR_MODULE_NOT_FOUND ... /config/index.js` | 旧版本 import 路径层级错误，`git pull` 拉取最新代码（已修复） |
+| systemd 反复重启，日志 `环境变量校验失败：Invalid url / Expected number, received nan` | unit 里的 `EnvironmentFile=` 不剥离行内注释 → 删除该行（见上），或把 `.env` 行内注释移到独立行 |
 | `Cannot find module 'better-sqlite3'` / 原生模块加载失败 | 先装 `build-essential python3`，再 `npm rebuild better-sqlite3`；npm 11+ 若提示 install-scripts 被拦截：`npm install-scripts approve better-sqlite3` 后 `npm rebuild better-sqlite3` |
-| 启动时报缺少环境变量 | `.env` 未填全，`src/config/index.js` 会逐项列出缺哪个 |
 | `401 Unauthorized`（getMe 失败） | `BOT_TOKEN` 错误或已被 BotFather 重置 |
 | 日志 `PUBLIC_URL 未配置` | 正常提示，纯轮询模式运行 |
+| 长轮询收不到消息（客户端无响应） | 检查是否残留 webhook：`getWebhookInfo` 有 url 就 `deleteWebhook` |
+| 启动正常但「/」菜单里没有命令 | 代码会在启动时注册 `setMyCommands`，看日志是否有「命令菜单注册失败」 |
 
 ## 运维
 
-- **备份**（`crontab -e`）：`0 3 * * * sqlite3 /opt/emos-dlt-bot/data/dlt.db ".backup /opt/emos-dlt-bot/backups/dlt-$(date +\%F).db"`
+- **备份**：见上「每日备份」，每天 03:00 自动执行，保留 30 天
 - **健康检查**：配置 `PUBLIC_URL` 后可访问 `https://你的域名/healthz`
 - **开奖验证**：`npm run verify-draw -- <期号>`
+- **日志**：`journalctl -u emos-dlt -f`（内存占用实测约 35 MB）
 
 ## 架构速览
 
@@ -101,7 +125,7 @@ grammY (polling) ── 投注向导/绑定/查询
     ├── emos API (pay/create · pay/query · pay/transfer · sign/check)
     ├── better-sqlite3 (WAL) — orders/bets/issues/prizes/rollover
     ├── node-cron — 开售/停售/开奖/对账/派奖
-    └── Fastify :8787 — /emos/notify (web 回调) + /healthz
+    └── Fastify :8787 — /emos/notify (web 回调) + /healthz（仅 PUBLIC_URL 配置时启动）
 ```
 
 ## 安全要点
@@ -119,12 +143,13 @@ grammY (polling) ── 投注向导/绑定/查询
 - 固定奖（四至九等奖）不受滚存影响，照常即中即派
 - **运营建议**：公示消息中突出「当前滚存奖池」，把累积的奖金作为卖点；或在滚存超过阈值时用 `/admin close` 停售一期再以特别期名义重开，制造话题
 
-## 待办（测试服联调清单）
+## 上线检查清单
 
-- [ ] emos 测试服真实走通：/bind 授权回跳 → signCheck
-- [ ] pay/create 真实创建 → 支付 → deeplink 回跳确认
-- [ ] pay/query 响应字段确认（`isOrderPaid` 判定字段需按真实响应收紧）
-- [ ] transfer 真实转账（千 6 费率核对）
-- [ ] web 回调（PUBLIC_URL 配置后）重试验证
-- [ ] 投注向导全流程 UX 走查（自选/机选/复式/守号）
-- [ ] 开奖 → 推送 → 派奖全链路带真实用户测试
+- [ ] `/start` 能收到欢迎与绑定引导
+- [ ] `/bind` 授权回跳 → `signCheck` 成功写入 users 表
+- [ ] `/bet` 全流程：自选 / 机选 / 复式 / 守号
+- [ ] 真实支付：`pay/create` → 支付 → deeplink 回跳入账（或 5 分钟内对账补单）
+- [ ] `pay/query` 响应字段核对，必要时收紧 `src/emos/pay.js` 的 `isOrderPaid`
+- [ ] 开奖：21:00 自动出号 → 推送 → 派奖 `pay/transfer`（核对千 6 费率）
+- [ ] 迟到支付退款路径
+- [ ] 备份文件可用（`sqlite3 backups/dlt-<日期>.db ".tables"` 验证）

@@ -1,13 +1,18 @@
 [Unit]
-Description=EMOS DLT Telegram Bot
+Description=EMOS DLT Telegram Bot (大乐透)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
+# 专用用户（如用 root 部署，改成 User=root 并把路径改为你的目录）
 User=dlt
 WorkingDirectory=/opt/emos-dlt-bot
-EnvironmentFile=/opt/emos-dlt-bot/.env
+# ⚠️ 故意不使用 EnvironmentFile：systemd 的 env 文件解析【不剥离行内注释】，
+#    `BOT_TOKEN=xxx  # 说明` 会被整段当作值传给进程，导致 zod 校验失败
+#    （Invalid url / Expected number, received nan）并无限重启。
+#    应用自身通过 dotenv 加载 .env，会正确剥离行内注释。
+#    若你确实要用 systemd 注入变量，请先把 .env 中的行内注释移到独立行。
 ExecStart=/usr/bin/node src/index.js
 Restart=always
 RestartSec=5
@@ -20,8 +25,8 @@ ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/opt/emos-dlt-bot/data /opt/emos-dlt-bot/backups /opt/emos-dlt-bot/logs
 
-# 资源
-MemoryMax=512M
+# 资源上限（按 VPS 内存调整；本 bot 实测常驻约 35MB）
+MemoryMax=500M
 LimitNOFILE=65535
 
 [Install]

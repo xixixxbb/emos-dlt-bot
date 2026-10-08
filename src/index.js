@@ -270,6 +270,23 @@ if (config.PUBLIC_URL) {
 
 if (!getCurrentIssue()) openNewIssue()
 
+// 注册命令菜单（Telegram 客户端「/」列表）
+try {
+  await bot.api.setMyCommands([
+    { command: 'start', description: '主菜单' },
+    { command: 'bet', description: '投注（自选/机选/复式/守号）' },
+    { command: 'quickpick', description: '机选一注' },
+    { command: 'issues', description: '当期奖池与开奖时间' },
+    { command: 'mybets', description: '我的投注' },
+    { command: 'result', description: '开奖结果' },
+    { command: 'balance', description: '萝卜余额' },
+    { command: 'bind', description: '绑定 EMOS 账号' },
+    { command: 'help', description: '玩法说明' },
+  ])
+} catch (e) {
+  logger.warn({ err: e.message }, '命令菜单注册失败（不影响运行）')
+}
+
 await bot.init()
 await bot.start({
   onStart: (me) => {
